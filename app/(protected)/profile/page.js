@@ -1,9 +1,10 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
-import { AvatarUploader } from '@/components/AvatarUploader'
+import styles from '@/app/app-ui.module.css'
 
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
@@ -14,9 +15,10 @@ export default function ProfilePage() {
     const token = Cookies.get('accessToken')
     if (!token) {
       router.push('/login')
-    } else {
-      fetchProfile()
+      return
     }
+
+    fetchProfile()
   }, [router])
 
   const fetchProfile = async () => {
@@ -26,12 +28,18 @@ export default function ProfilePage() {
           Authorization: `Bearer ${Cookies.get('accessToken')}`,
         },
       })
+
+      if (!res.ok) {
+        throw new Error('Profile request failed')
+      }
+
       const data = await res.json()
       setUser(data)
-      setLoading(false)
     } catch (error) {
-      console.error('Ошибка загрузки профиля:', error)
+      console.error('Profile loading error:', error)
       router.push('/login')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -41,82 +49,102 @@ export default function ProfilePage() {
     router.push('/login')
   }
 
-  const handleAvatarUpload = async (url) => {
-    try {
-      await fetch('/api/auth/avatar', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${Cookies.get('accessToken')}`,
-        },
-        body: JSON.stringify({ avatarUrl: url }),
-      })
-      fetchProfile() // После загрузки аватара перезагружаем профиль
-    } catch (error) {
-      console.error('Ошибка загрузки аватара:', error)
-    }
+  if (loading) {
+    return <div className={styles.loading}>Loading profile...</div>
   }
 
-  if (loading) return <div>Загрузка...</div>
+  const username = user?.username || 'User'
+  const email = user?.email || 'No email'
+  const initial = username.charAt(0).toUpperCase()
 
   return (
-    <div style={{ padding: '20px', backgroundColor: '#000', minHeight: '100vh', color: '#fff' }}>
-      <h1>Профиль</h1>
-      <p>Добро пожаловать, {user?.username || 'Пользователь'}!</p>
-
-      {user?.avatarUrl ? (
-        <div style={{ margin: '20px 0' }}>
-          <img
-            src={user.avatarUrl}
-            alt="Avatar"
-            style={{
-              width: '150px',
-              height: '150px',
-              objectFit: 'cover',
-              borderRadius: '50%',
-              backgroundColor: '#333',
-              display: 'block',
-              marginBottom: '10px',
-            }}
-          />
+    <main className={styles.shell}>
+      <nav className={styles.nav}>
+        <div className={styles.navBrand}>
+          <strong>MERN Auth App</strong>
+          <span>Protected profile dashboard</span>
         </div>
-      ) : (
-        <AvatarUploader onUploadComplete={handleAvatarUpload} />
-      )}
 
-      {!user?.avatarUrl && (
-        <p style={{ marginBottom: '20px' }}>Загрузите аватар</p>
-      )}
+        <div className={styles.navLinks}>
+          <Link href="/">Home</Link>
+          <Link href="/posts">Posts</Link>
+          <button className={styles.smallButton} onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
+      </nav>
 
-      <button
-        onClick={() => router.push('/posts')}
-        style={{
-          marginTop: '20px',
-          marginBottom: '20px',
-          padding: '8px 16px',
-          backgroundColor: '#3498db',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '8px',
-          cursor: 'pointer'
-        }}
-      >
-        Перейти к постам
-      </button>
+      <section className={styles.dashboard}>
+        <div className={styles.dashboardGrid}>
+          <aside className={styles.panel}>
+            <div className={styles.profileTop}>
+              <div className={styles.avatar}>
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="Avatar" />
+                ) : (
+                  initial
+                )}
+              </div>
 
-      <button
-        onClick={handleLogout}
-        style={{
-          padding: '8px 16px',
-          backgroundColor: '#e74c3c',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '8px',
-          cursor: 'pointer'
-        }}
-      >
-        Выйти
-      </button>
-    </div>
+              <div>
+                <div className={styles.badge}>Authenticated</div>
+                <h1 className={styles.formTitle}>{username}</h1>
+                <p className={styles.muted}>{email}</p>
+              </div>
+            </div>
+
+            <div className={styles.featureList}>
+              <div className={styles.featureItem}>
+                <strong>Access token</strong>
+                <span>Profile data is loaded with a JWT Bearer token.</span>
+              </div>
+              <div className={styles.featureItem}>
+                <strong>Private route</strong>
+                <span>Without a token, the user is redirected to login.</span>
+              </div>
+            </div>
+          </aside>
+
+          <section className={styles.panel}>
+            <div className={styles.badge}>Account overview</div>
+            <h2 className={styles.formTitle}>Profile details</h2>
+            <p className={styles.formText}>
+              This page demonstrates protected client-side access, token-based
+              API calls and user profile rendering.
+            </p>
+
+            <div className={styles.stats}>
+              <div className={styles.statCard}>
+                <strong>JWT</strong>
+                <span>Authentication</span>
+              </div>
+              <div className={styles.statCard}>
+                <strong>API</strong>
+                <span>/api/auth/profile</span>
+              </div>
+              <div className={styles.statCard}>
+                <strong>DB</strong>
+                <span>MongoDB user</span>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 18 }} className={styles.notice}>
+              Avatar upload is prepared through Uploadthing. To enable it
+              locally, add <code>UPLOADTHING_TOKEN</code> to your environment
+              variables.
+            </div>
+
+            <div className={styles.actions}>
+              <Link className={styles.primaryButton} href="/posts">
+                Open posts
+              </Link>
+              <button className={styles.dangerButton} onClick={handleLogout}>
+                Logout
+              </button>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
   )
 }
